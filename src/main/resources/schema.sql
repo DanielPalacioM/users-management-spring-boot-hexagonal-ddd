@@ -1,24 +1,34 @@
 -- =============================================
 -- Script de creación de la base de datos
 -- Gestión de Usuarios - Arquitectura Hexagonal
+-- (Versión PostgreSQL)
 -- =============================================
-
-CREATE DATABASE IF NOT EXISTS crud_usuarios
-    CHARACTER SET utf8mb4
-    COLLATE utf8mb4_unicode_ci;
-
-USE crud_usuarios;
 
 CREATE TABLE IF NOT EXISTS users (
     id          VARCHAR(36)  NOT NULL PRIMARY KEY,
     name        VARCHAR(100) NOT NULL,
     email       VARCHAR(150) NOT NULL UNIQUE,
     password    VARCHAR(255) NOT NULL,
-    role        ENUM('ADMIN', 'MEMBER', 'REVIEWER') NOT NULL,
-    status      ENUM('ACTIVE', 'INACTIVE', 'PENDING', 'BLOCKED') NOT NULL DEFAULT 'PENDING',
-    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    role        VARCHAR(20) NOT NULL CHECK (role IN ('ADMIN', 'MEMBER', 'REVIEWER')),
+    status      VARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('ACTIVE', 'INACTIVE', 'PENDING', 'BLOCKED')),
+    created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Trigger para actualizar updated_at automáticamente (equivalente a ON UPDATE CURRENT_TIMESTAMP de MySQL)
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_users_updated_at ON users;
+CREATE TRIGGER trg_users_updated_at
+    BEFORE UPDATE ON users
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
 
 -- Usuario administrador inicial (password: Admin1234!)
 INSERT INTO users (id, name, email, password, role, status)
@@ -29,5 +39,5 @@ VALUES (
     '$2a$12$placeholderHashReplaceWithRealBCryptHash',
     'ADMIN',
     'ACTIVE'
-);
-
+)
+ON CONFLICT (email) DO NOTHING;
